@@ -12,7 +12,7 @@ REMOTE_REPOS_DIR = "/infai/oglakc0000/projects"
 
 if project.REMOTE:
     SUITE = project.SUITE_SATISFICING
-    ENV = project.BaselSlurmEnvironment(email="d.oglakcioglu@unibas.ch")
+    ENV = project.BaselSlurmEnvironment(email="oglakc0000@stud.unibas.ch")
 else:
     SUITE = ["depot:p01.pddl", "grid:prob01.pddl", "gripper:prob01.pddl"]
     ENV = project.LocalEnvironment(processes=2)
@@ -29,7 +29,6 @@ CONFIGS = [
 ]
 BUILD_OPTIONS = ["-j4"]
 DRIVER_OPTIONS = ["--overall-time-limit", "5m"]
-
 REV_NICKS = [
     ("main", ""),
 ]
