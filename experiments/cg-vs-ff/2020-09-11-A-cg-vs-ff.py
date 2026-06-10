@@ -42,8 +42,21 @@ ATTRIBUTES = [
     "coverage",
     "expansions",
     "memory",
+    "successor_generator_creation_time",
+    "successor_generator_calls",
+    "successor_generator_time",
+    "successor_generator_calls_per_expansion",
     project.EVALUATIONS_PER_TIME,
 ]
+
+
+def add_successor_generator_calls_per_expansion(run):
+    calls = run.get("successor_generator_calls")
+    expansions = run.get("expansions")
+    if calls is not None and expansions:
+        run["successor_generator_calls_per_expansion"] = calls / expansions
+    return run
+
 
 exp = project.FastDownwardExperiment(environment=ENV)
 for config_nick, config in CONFIGS:
@@ -71,10 +84,12 @@ exp.add_step("parse", exp.parse)
 exp.add_fetcher(name="fetch")
 
 project.add_absolute_report(
-    exp, attributes=ATTRIBUTES, filter=[project.add_evaluations_per_time]
+    exp,
+    attributes=ATTRIBUTES,
+    filter=[project.add_evaluations_per_time, add_successor_generator_calls_per_expansion],
 )
 
-attributes = ["expansions"]
+attributes = ["expansions", "successor_generator_time"]
 pairs = [
     ("01-cg", "02-ff"),
 ]

@@ -27,7 +27,7 @@ CONFIGS = [
         start=1,
     )
 ]
-BUILD_OPTIONS = []
+BUILD_OPTIONS = ["-j4"]
 DRIVER_OPTIONS = ["--overall-time-limit", "5m"]
 REV_NICKS = [
     ("main", ""),
