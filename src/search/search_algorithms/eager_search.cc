@@ -111,6 +111,7 @@ void EagerSearch::print_statistics() const {
     statistics.print_detailed_statistics();
     search_space.print_statistics();
     pruning_method->print_statistics();
+    successor_generator.print_statistics();
 }
 
 SearchStatus EagerSearch::step() {

@@ -41,9 +41,29 @@ ATTRIBUTES = [
     "h_values",
     "coverage",
     "expansions",
+    "evaluations",
     "memory",
+    "successor_generator_construction_time",
+    "successor_generator_time",
+    "successor_generator_calls",
+    "successor_generator_time_ratio",
+    "successor_generator_calls_ratio",
     project.EVALUATIONS_PER_TIME,
 ]
+
+
+def add_successor_generator_ratios(run):
+    sg_time = run.get("successor_generator_time")
+    total_time = run.get("total_time")
+    if sg_time is not None and total_time:
+        run["successor_generator_time_ratio"] = sg_time / total_time
+
+    sg_calls = run.get("successor_generator_calls")
+    evaluations = run.get("evaluations")
+    if sg_calls is not None and evaluations:
+        run["successor_generator_calls_ratio"] = sg_calls / evaluations
+
+    return run
 
 exp = project.FastDownwardExperiment(environment=ENV)
 for config_nick, config in CONFIGS:
@@ -71,8 +91,29 @@ exp.add_step("parse", exp.parse)
 exp.add_fetcher(name="fetch")
 
 project.add_absolute_report(
-    exp, attributes=ATTRIBUTES, filter=[project.add_evaluations_per_time]
+    exp,
+    attributes=ATTRIBUTES,
+    filter=[project.add_evaluations_per_time, add_successor_generator_ratios],
 )
+
+attributes = ["expansions", "successor_generator_time"]
+pairs = [
+    ("01-cg", "02-ff"),
+]
+suffix = "-rel" if project.RELATIVE else ""
+for algo1, algo2 in pairs:
+    for attr in attributes:
+        exp.add_report(
+            project.ScatterPlotReport(
+                relative=project.RELATIVE,
+                get_category=None if project.TEX else lambda run1, run2: run1["domain"],
+                attributes=[attr],
+                filter_algorithm=[algo1, algo2],
+                filter=[project.add_evaluations_per_time, add_successor_generator_ratios],
+                format="tex" if project.TEX else "png",
+            ),
+            name=f"{exp.name}-{algo1}-vs-{algo2}-{attr}{suffix}",
+        )
 
 if not project.REMOTE:
     project.add_scp_step(exp, SCP_LOGIN, REMOTE_REPOS_DIR)

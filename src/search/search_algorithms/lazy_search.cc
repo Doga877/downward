@@ -233,5 +233,6 @@ void LazySearch::reward_progress() {
 void LazySearch::print_statistics() const {
     statistics.print_detailed_statistics();
     search_space.print_statistics();
+    successor_generator.print_statistics();
 }
 }

@@ -52,4 +52,19 @@ def get_parser():
         r"New best heuristic value for .+: (\d+)\n",
         type=int,
     )
+    parser.add_pattern(
+        "successor_generator_construction_time",
+        r"time for successor generation creation: ([\d.]+)s",
+        type=float,
+    )
+    parser.add_pattern(
+        "successor_generator_time",
+        r"Time for successor generation: ([\d.]+)s",
+        type=float,
+    )
+    parser.add_pattern(
+        "successor_generator_calls",
+        r"Successor generator calls: (\d+)",
+        type=int,
+    )
     return parser
