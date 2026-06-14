@@ -53,18 +53,18 @@ def get_parser():
         type=int,
     )
     parser.add_pattern(
-        "successor_generator_creation_time",
-        r"time for successor generation creation: (.+)s",
+        "successor_generator_construction_time",
+        r"time for successor generation creation: ([\d.]+)s",
+        type=float,
+    )
+    parser.add_pattern(
+        "successor_generator_time",
+        r"Time for successor generation: ([\d.]+)s",
         type=float,
     )
     parser.add_pattern(
         "successor_generator_calls",
         r"Successor generator calls: (\d+)",
         type=int,
-    )
-    parser.add_pattern(
-        "successor_generator_time",
-        r"Time for successor generation: (.+)s",
-        type=float,
     )
     return parser
