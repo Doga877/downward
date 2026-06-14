@@ -5,3 +5,4 @@ __pycache__/
 /builds/
 /misc/.tox/
 /misc/autodoc/downward-xmlrpc.secret
+/cg-vs-ff/data/
