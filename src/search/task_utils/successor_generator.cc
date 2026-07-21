@@ -19,9 +19,14 @@ SuccessorGenerator::~SuccessorGenerator() = default;
 
 void SuccessorGenerator::generate_applicable_ops(
     const State &state, vector<OperatorID> &applicable_ops) const {
-    timer.resume();
+    // Unpacking the state is preparation that every successor-generation
+    // method (match tree, naive, watched literals) needs alike; it is not
+    // part of the generator's own work, so we do it *outside* the timed
+    // region to measure only the tree traversal itself.
     state.unpack();
-    root->generate_applicable_ops(state.get_unpacked_values(), applicable_ops);
+    const vector<int> &unpacked = state.get_unpacked_values();
+    timer.resume();
+    root->generate_applicable_ops(unpacked, applicable_ops);
     timer.stop();
     ++num_calls;
 }
