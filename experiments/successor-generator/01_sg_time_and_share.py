@@ -66,7 +66,7 @@ def add_time_decomposition_and_shares(run):
     search = run.get("search_time")
     sg_build = run.get("successor_generator_construction_time")
     sg_query = run.get("successor_generator_time")
-    translator = run.get("translator_time")
+    translator = run.get("translator_time_done")
 
     if search is not None and sg_query is not None:
         run["search_rest"] = search - sg_query
@@ -96,7 +96,7 @@ def _share(name, digits=4):
 
 
 TIME_ATTRIBUTES = [
-    _sec("translator_time"),
+    _sec("translator_time_done"),
     _sec("successor_generator_construction_time"),
     _sec("successor_generator_time"),
     _sec("search_rest"),
