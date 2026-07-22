@@ -115,7 +115,7 @@ SUCCESSOR_GENERATOR_TIME = Attribute(
 # successor_generator_time / total_time.
 SUCCESSOR_GENERATOR_TIME_RATIO = Attribute(
     "successor_generator_time_ratio",
-    min_wins=False, function=geometric_mean, digits=4,
+    min_wins=False, function=geometric_mean, digits=4, #aritmetic mean bei lapo webseote herausfinden
 )
 # (successor_generator_construction_time + successor_generator_time) /
 # total_time: share of the whole run spent on the successor generator in
