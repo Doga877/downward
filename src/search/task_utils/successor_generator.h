@@ -15,6 +15,7 @@ namespace successor_generator {
 class GeneratorBase;
 
 class SuccessorGenerator {
+    bool use_naive;
     std::unique_ptr<GeneratorBase> root;
     mutable utils::Timer timer;
     mutable long num_calls;

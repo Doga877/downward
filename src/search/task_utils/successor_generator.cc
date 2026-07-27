@@ -2,15 +2,26 @@
 
 #include "successor_generator_factory.h"
 #include "successor_generator_internals.h"
+#include "successor_generator_naive.h"
 
 #include "../abstract_task.h"
 #include "../utils/logging.h"
 
+#include <cstdlib>
+
 using namespace std;
 
 namespace successor_generator {
+static unique_ptr<GeneratorBase> create_root(
+    const TaskProxy &task_proxy, bool use_naive) {
+    if (use_naive)
+        return make_unique<GeneratorNaive>(task_proxy);
+    return SuccessorGeneratorFactory(task_proxy).create();
+}
+
 SuccessorGenerator::SuccessorGenerator(const TaskProxy &task_proxy)
-    : root(SuccessorGeneratorFactory(task_proxy).create()),
+    : use_naive(getenv("DOWNWARD_SG_NAIVE") != nullptr),
+      root(create_root(task_proxy, use_naive)),
       timer(false),
       num_calls(0) {
 }
@@ -32,6 +43,7 @@ void SuccessorGenerator::generate_applicable_ops(
 }
 
 void SuccessorGenerator::print_statistics() const {
+    utils::g_log << "Successor generator method: "<< (use_naive ? "naive" : "match tree") << endl;
     utils::g_log << "Successor generator calls: " << num_calls << endl;
     utils::g_log << "Time for successor generation: " << timer << endl;
 }
