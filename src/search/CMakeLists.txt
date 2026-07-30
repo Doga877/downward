@@ -775,6 +775,7 @@ create_fast_downward_library(
         task_utils/successor_generator_factory
         task_utils/successor_generator_internals
         task_utils/successor_generator_naive
+        task_utils/successor_generator_watched_literals
     DEPENDS
         task_properties
     DEPENDENCY_ONLY

@@ -3,6 +3,7 @@
 #include "successor_generator_factory.h"
 #include "successor_generator_internals.h"
 #include "successor_generator_naive.h"
+#include "successor_generator_watched_literals.h"
 
 #include "../abstract_task.h"
 #include "../utils/logging.h"
@@ -13,15 +14,18 @@ using namespace std;
 
 namespace successor_generator {
 static unique_ptr<GeneratorBase> create_root(
-    const TaskProxy &task_proxy, bool use_naive) {
+    const TaskProxy &task_proxy, bool use_naive, bool use_watched_literals) {
+    if (use_watched_literals)
+        return make_unique<GeneratorWatchedLiterals>(task_proxy);
     if (use_naive)
         return make_unique<GeneratorNaive>(task_proxy);
-    return SuccessorGeneratorFactory(task_proxy).create();
+    return SuccessorGeneratorFactory(task_proxy).create(); // Match tree
 }
 
 SuccessorGenerator::SuccessorGenerator(const TaskProxy &task_proxy)
     : use_naive(getenv("DOWNWARD_SG_NAIVE") != nullptr),
-      root(create_root(task_proxy, use_naive)),
+      use_watched_literals(getenv("DOWNWARD_SG_WATCHED_LITERALS") != nullptr),
+      root(create_root(task_proxy, use_naive, use_watched_literals)),
       timer(false),
       num_calls(0) {
 }
@@ -43,7 +47,15 @@ void SuccessorGenerator::generate_applicable_ops(
 }
 
 void SuccessorGenerator::print_statistics() const {
-    utils::g_log << "Successor generator method: "<< (use_naive ? "naive" : "match tree") << endl;
+    string method;
+    if (use_watched_literals) {
+        method = "watched literals";
+    } else if (use_naive) {
+        method = "naive";
+    } else {
+        method = "match tree";
+    }
+    utils::g_log << "Successor generator method: " << method << endl;
     utils::g_log << "Successor generator calls: " << num_calls << endl;
     utils::g_log << "Time for successor generation: " << timer << endl;
 }
