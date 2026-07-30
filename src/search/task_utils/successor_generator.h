@@ -17,9 +17,17 @@ class GeneratorBase;
 class SuccessorGenerator {
     bool use_naive;
     bool use_watched_literals;
+    bool compare_with_match_tree;
     std::unique_ptr<GeneratorBase> root;
+    std::unique_ptr<GeneratorBase> reference;
     mutable utils::Timer timer;
     mutable long num_calls;
+    mutable long num_compared;
+
+    void check_against_reference(
+        const std::vector<int> &state,
+        const std::vector<OperatorID> &applicable_ops,
+        int size_before) const;
 
 public:
     explicit SuccessorGenerator(const TaskProxy &task_proxy);
