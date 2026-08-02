@@ -17,6 +17,7 @@ class GeneratorBase;
 class SuccessorGenerator {
     bool use_naive;
     bool use_watched_literals;
+    bool use_marking;
     std::unique_ptr<GeneratorBase> root;
     mutable utils::Timer timer;
     mutable long num_calls;
