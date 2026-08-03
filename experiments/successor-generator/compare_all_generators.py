@@ -16,7 +16,7 @@ import project
 REPO = project.get_repo_base()
 REVISION = "sg-marking"
 SCP_LOGIN = "oglakc0000@login.infai.org"
-REMOTE_REPOS_DIR = "/infai/oglakc0000/projects"
+REMOTE_REPOS_DIR = "/infai/oglakc0000"
 
 # Every environment variable that can switch the successor generator.
 # Listed here so we can delete ALL of them before setting the one we want.
@@ -193,8 +193,6 @@ def compute_derived_values(run):
         run["time_per_query_microseconds"] = query_time / num_queries * 1_000_000
     if num_queries is not None and expansions:
         run["queries_per_expansion"] = num_queries / expansions
-    if build_time is not None:
-        run["generator_build_time_microseconds"] = build_time * 1_000_000
 
     return run
 
@@ -221,7 +219,6 @@ def _share_attribute(name, digits=4):
 TIME_ATTRIBUTES = [
     _time_attribute("translator_time_seconds"),
     _time_attribute("generator_build_time_seconds"),
-    _time_attribute("generator_build_time_microseconds"),
     _time_attribute("generator_query_time_seconds"),
     _time_attribute("time_per_query_microseconds"),
     _time_attribute("search_time_without_generator_seconds"),
@@ -261,7 +258,6 @@ ATTRIBUTES = [
 SCATTER_ATTRIBUTES = [
     "generator_query_time_seconds",
     "time_per_query_microseconds",
-    "generator_build_time_microseconds",
     "total_time_seconds",
 ]
 
