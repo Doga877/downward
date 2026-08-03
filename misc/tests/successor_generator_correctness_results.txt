@@ -1,0 +1,3 @@
+gripper/prob01.pddl: 713 Vergleiche, OK
+
+GESAMT: 713 Vergleiche, 0 Abweichungen

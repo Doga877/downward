@@ -5,6 +5,7 @@
 #include "../utils/timer.h"
 
 #include <memory>
+#include <string>
 #include <vector>
 
 class OperatorID;
@@ -18,9 +19,16 @@ class SuccessorGenerator {
     bool use_naive;
     bool use_watched_literals;
     bool use_marking;
+    bool log_applicable_ops;
+    std::string log_method_name;
     std::unique_ptr<GeneratorBase> root;
     mutable utils::Timer timer;
     mutable long num_calls;
+
+    void log_call(
+        const std::vector<int> &state,
+        const std::vector<OperatorID> &applicable_ops,
+        int size_before) const;
 
 public:
     explicit SuccessorGenerator(const TaskProxy &task_proxy);
