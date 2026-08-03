@@ -16,7 +16,7 @@ import project
 REPO = project.get_repo_base()
 REVISION = "sg-marking"
 SCP_LOGIN = "oglakc0000@login.infai.org"
-REMOTE_REPOS_DIR = "/infai/oglakc0000/projects"
+REMOTE_REPOS_DIR = "/infai/oglakc0000"
 
 # Every environment variable that can switch the successor generator.
 # Listed here so we can delete ALL of them before setting the one we want.
