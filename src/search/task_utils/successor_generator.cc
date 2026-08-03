@@ -14,6 +14,10 @@
 using namespace std;
 
 namespace successor_generator {
+// ZEITMESSUNG (Bau): Die Bauzeit dieses create_root()-Aufrufs wird in search_algorithm.cc gemessen (Timer successor_generator_timer,
+// Ausgabe "time for successor generation creation"). 
+// Diese Messung enthält: den kompletten create_root()-Aufruf (je nach Variante den Konstruktor von GeneratorNaive / GeneratorWatchedLiterals / GeneratorMarking, oder  SuccessorGeneratorFactory::create() für den Match Tree)
+// und PerTaskInformation-Lookup g_successor_generators[task_proxy], der diesen Konstruktor auslöst.
 static unique_ptr<GeneratorBase> create_root(
     const TaskProxy &task_proxy, bool use_naive, bool use_watched_literals,
     bool use_marking) {
@@ -40,10 +44,6 @@ SuccessorGenerator::~SuccessorGenerator() = default;
 
 void SuccessorGenerator::generate_applicable_ops(
     const State &state, vector<OperatorID> &applicable_ops) const {
-    // Unpacking the state is preparation that every successor-generation
-    // method (match tree, naive, watched literals, marking) needs alike; it is not
-    // part of the generator's own work, so we do it *outside* the timed
-    // region to measure only the tree traversal itself.
     state.unpack();
     const vector<int> &unpacked = state.get_unpacked_values();
     timer.resume();
