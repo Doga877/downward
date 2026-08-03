@@ -10,12 +10,16 @@ class TaskProxy;
 
 namespace successor_generator {
 class GeneratorMarking : public GeneratorBase {
-    std::vector<int> num_preconditions;
+    struct Entry {
+        int num_preconditions;
+        int count_precondition;
+        int last_seen;
+    };
+
     std::vector<std::vector<std::vector<int>>> precondition_to_operators;
     std::vector<OperatorID> operators_without_preconditions;
 
-    mutable std::vector<int> count_precondition;
-    mutable std::vector<int> last_seen;
+    mutable std::vector<Entry> operators;
     mutable int current_round;
 
 public:

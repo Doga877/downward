@@ -16,16 +16,14 @@ GeneratorMarking::GeneratorMarking(const TaskProxy &task_proxy) {
 
     OperatorsProxy all_operators = task_proxy.get_operators();
     int num_operators = all_operators.size(); // anzahl der operatoren 
-    num_preconditions.resize(num_operators, 0); // num_preconditions  = [0,0,0, ...]
-    count_precondition.resize(num_operators, 0); // zählt die preconditions runter zur laufzeit
-    last_seen.resize(num_operators, 0);  // pro Operator, in welcher Runde er zuletzt angefasst wurde
+    operators.resize(num_operators); // ein Entry pro Operator, alle drei Zahlen starten bei 0
     current_round = 0; // aktuelle Rundennummer,  ersten Aufruf von generate_applicable_ops wird er auf 1 erhöht
 
     for (OperatorProxy op : all_operators) {
         int op_id = op.get_id();
-        num_preconditions[op_id] = op.get_preconditions().size(); // anzah der precondtions pro op. eingetragen
+        operators[op_id].num_preconditions = op.get_preconditions().size(); // anzah der precondtions pro op. eingetragen
 
-        if (num_preconditions[op_id] == 0) {
+        if (operators[op_id].num_preconditions == 0) {
             operators_without_preconditions.push_back(OperatorID(op_id));  // op ohne precontion kommt auf eine seperate liste
         }
 
@@ -48,15 +46,17 @@ void GeneratorMarking::generate_applicable_ops(
         const vector<int> &operators_here = precondition_to_operators[variable_id][value]; // liste der operatoren für den fakt
 
         for (int op_id : operators_here) {
-            if (last_seen[op_id] != current_round) { // checkt ob der zuletzt in einer anderen Runde (beim vorherigen ausrugen) geändert? --> falls ja, alte zähler stand
-                last_seen[op_id] = current_round; // zähler aktualiseiren
-                count_precondition[op_id] = num_preconditions[op_id]; // Bedingungszähler frisch auf die Gesamtzahl seiner Vorbedingungen setzen.
+            Entry &entry = operators[op_id]; // den Operator einmal holen, danach nur noch entry benutzen
+
+            if (entry.last_seen != current_round) { // checkt ob der zuletzt in einer anderen Runde (beim vorherigen ausrugen) geändert? --> falls ja, alte zähler stand
+                entry.last_seen = current_round; // zähler aktualiseiren
+                entry.count_precondition = entry.num_preconditions; // Bedingungszähler frisch auf die Gesamtzahl seiner Vorbedingungen setzen.
             }
-            // beim zweiten ausrunf in der selben ausruf if schleife wird üebrsprungen 
+            // beim zweiten ausrunf in der selben ausruf if schleife wird üebrsprungen
 
-            count_precondition[op_id] -= 1; // zähler der vorbedingung wird runter gezählt
+            entry.count_precondition -= 1; // zähler der vorbedingung wird runter gezählt
 
-            if (count_precondition[op_id] == 0) { // falls der vorbedingugnzähler auf 0 erreicht, dann ist applipicbale
+            if (entry.count_precondition == 0) { // falls der vorbedingugnzähler auf 0 erreicht, dann ist applipicbale
                 applicable_ops.push_back(OperatorID(op_id));
             }
         }
