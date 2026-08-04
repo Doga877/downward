@@ -14,12 +14,20 @@ class TaskProxy;
 namespace successor_generator {
 class GeneratorBase;
 
+enum class TimerMode {
+    OFF,
+    CPU,
+    MONOTONIC,
+};
+
 class SuccessorGenerator {
     bool use_naive;
     bool use_watched_literals;
     bool use_marking;
+    TimerMode timer_mode;
     std::unique_ptr<GeneratorBase> root;
-    mutable utils::Timer timer;
+    mutable utils::Timer cpu_timer;
+    mutable long monotonic_nanoseconds;
     mutable long num_calls;
 
 public:
