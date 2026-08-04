@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import itertools
 import os
 import sys
 from collections import OrderedDict
@@ -13,16 +14,21 @@ from lab.reports import Attribute, arithmetic_mean
 import project
 
 REPO = project.get_repo_base()
-REVISION = "watched-literals"
+REVISION = "sg-marking"
 SCP_LOGIN = "oglakc0000@login.infai.org"
 REMOTE_REPOS_DIR = "/infai/oglakc0000/projects"
 
-ALLE_SG_VARIABLEN = ["DOWNWARD_SG_NAIVE", "DOWNWARD_SG_WATCHED_LITERALS"]
+ALLE_SG_VARIABLEN = [
+    "DOWNWARD_SG_NAIVE",
+    "DOWNWARD_SG_WATCHED_LITERALS",
+    "DOWNWARD_SG_MARKING",
+]
 
 SG_METHODEN = [
     ("baum", [], "match tree"),
     ("naiv", ["DOWNWARD_SG_NAIVE=1"], "naive"),
     ("watched", ["DOWNWARD_SG_WATCHED_LITERALS=1"], "watched literals"),
+    ("marking", ["DOWNWARD_SG_MARKING=1"], "marking"),
 ]
 
 KONFIGURATIONEN = [
@@ -281,9 +287,10 @@ project.add_absolute_report(
 )
 
 # Eine Tabelle beruecksichtigt nur Aufgaben, die alle ihre Algorithmen geloest
-# haben. Ein fehlerhafter Generator wuerde die Tabelle mit allen drei Methoden
-# also leeren. Diese Berichte je Methodenpaar bleiben davon unberuehrt.
-for erste, zweite in [("baum", "naiv"), ("baum", "watched"), ("naiv", "watched")]:
+# haben. Ein fehlerhafter Generator wuerde die Tabelle mit allen Methoden also
+# leeren. Diese Berichte je Methodenpaar bleiben davon unberuehrt.
+methoden = [methode for methode, _, _ in SG_METHODEN]
+for erste, zweite in itertools.combinations(methoden, 2):
     project.add_absolute_report(
         exp,
         name=f"{exp.name}-{erste}-vs-{zweite}",

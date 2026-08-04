@@ -8,8 +8,13 @@
 
 #include "../abstract_task.h"
 #include "../utils/logging.h"
+#include "../utils/system.h"
 
 #include <cstdlib>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
+#include <string>
 
 using namespace std;
 
@@ -41,16 +46,46 @@ static string generator_name_for_log(
     return "match-tree";
 }
 
+static TimerMode read_timer_mode() {
+    const char *requested_mode = getenv("DOWNWARD_SG_TIMER");
+    if (requested_mode == nullptr)
+        return TimerMode::CPU;
+    string mode_name = requested_mode;
+    if (mode_name == "off")
+        return TimerMode::OFF;
+    if (mode_name == "cpu")
+        return TimerMode::CPU;
+    if (mode_name == "monotonic")
+        return TimerMode::MONOTONIC;
+    utils::g_log << "Unknown DOWNWARD_SG_TIMER value: " << mode_name
+                 << " (expected off, cpu or monotonic)" << endl;
+    utils::exit_with(utils::ExitCode::SEARCH_INPUT_ERROR);
+}
+
+static long current_monotonic_nanoseconds() {
+    timespec time_point;
+    clock_gettime(CLOCK_MONOTONIC, &time_point);
+    return time_point.tv_sec * 1000000000L + time_point.tv_nsec;
+}
+
+static string format_seconds(double seconds) {
+    ostringstream formatted;
+    formatted << fixed << setprecision(6) << seconds << "s";
+    return formatted.str();
+}
+
 SuccessorGenerator::SuccessorGenerator(const TaskProxy &task_proxy)
     : use_naive(getenv("DOWNWARD_SG_NAIVE") != nullptr),
       use_watched_literals(getenv("DOWNWARD_SG_WATCHED_LITERALS") != nullptr),
       use_marking(getenv("DOWNWARD_SG_MARKING") != nullptr),
+      timer_mode(read_timer_mode()),
       log_applicable_ops(getenv("DOWNWARD_SG_LOG") != nullptr),
       log_method_name(generator_name_for_log(
           use_naive, use_watched_literals, use_marking)),
       root(create_root(
                task_proxy, use_naive, use_watched_literals, use_marking)),
-      timer(false),
+      cpu_timer(false),
+      monotonic_nanoseconds(0),
       num_calls(0) {
 }
 
@@ -61,9 +96,17 @@ void SuccessorGenerator::generate_applicable_ops(
     state.unpack();
     const vector<int> &unpacked = state.get_unpacked_values();
     int size_before = applicable_ops.size();
-    timer.resume();
-    root->generate_applicable_ops(unpacked, applicable_ops);
-    timer.stop();
+    if (timer_mode == TimerMode::CPU) {
+        cpu_timer.resume();
+        root->generate_applicable_ops(unpacked, applicable_ops);
+        cpu_timer.stop();
+    } else if (timer_mode == TimerMode::MONOTONIC) {
+        long start = current_monotonic_nanoseconds();
+        root->generate_applicable_ops(unpacked, applicable_ops);
+        monotonic_nanoseconds += current_monotonic_nanoseconds() - start;
+    } else {
+        root->generate_applicable_ops(unpacked, applicable_ops);
+    }
     ++num_calls;
     if (log_applicable_ops) {
         log_call(unpacked, applicable_ops, size_before);
@@ -104,7 +147,17 @@ void SuccessorGenerator::print_statistics() const {
     }
     utils::g_log << "Successor generator method: " << method << endl;
     utils::g_log << "Successor generator calls: " << num_calls << endl;
-    utils::g_log << "Time for successor generation: " << timer << endl;
+
+    if (timer_mode == TimerMode::CPU) {
+        utils::g_log << "Successor generator timer: cpu" << endl;
+        utils::g_log << "Time for successor generation: " << cpu_timer << endl;
+    } else if (timer_mode == TimerMode::MONOTONIC) {
+        utils::g_log << "Successor generator timer: monotonic" << endl;
+        utils::g_log << "Time for successor generation: "
+                     << format_seconds(monotonic_nanoseconds / 1e9) << endl;
+    } else {
+        utils::g_log << "Successor generator timer: off" << endl;
+    }
 }
 
 PerTaskInformation<SuccessorGenerator> g_successor_generators;
