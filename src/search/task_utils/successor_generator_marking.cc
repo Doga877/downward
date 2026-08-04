@@ -13,7 +13,8 @@ GeneratorMarking::GeneratorMarking(const TaskProxy &task_proxy) {
         int num_values = variable.get_domain_size(); // anzahl optionen pro  precondition
         precondition_to_operators[variable_id].resize(num_values);  // precondition_to_operators = [ [{},{},{}] , [...] , [] , ... ]
     }
-
+    // Optimirungen dazu schreiben, die einen einlfuss auf die zeit haben 
+    // 
     OperatorsProxy all_operators = task_proxy.get_operators();
     int num_operators = all_operators.size(); // anzahl der operatoren 
     operators.resize(num_operators); // ein Entry pro Operator, alle drei Zahlen starten bei 0
@@ -48,6 +49,7 @@ void GeneratorMarking::generate_applicable_ops(
         for (int op_id : operators_here) {
             Entry &entry = operators[op_id]; // den Operator einmal holen, danach nur noch entry benutzen
 
+            // wenn ich schon kopiere 
             if (entry.last_seen != current_round) { // checkt ob der zuletzt in einer anderen Runde (beim vorherigen ausrugen) geändert? --> falls ja, alte zähler stand
                 entry.last_seen = current_round; // zähler aktualiseiren
                 entry.count_precondition = entry.num_preconditions; // Bedingungszähler frisch auf die Gesamtzahl seiner Vorbedingungen setzen.
