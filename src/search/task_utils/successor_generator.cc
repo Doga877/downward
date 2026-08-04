@@ -8,9 +8,7 @@
 
 #include "../abstract_task.h"
 #include "../utils/logging.h"
-#include "../utils/system.h"
 
-#include <algorithm>
 #include <cstdlib>
 
 using namespace std;
@@ -47,18 +45,13 @@ SuccessorGenerator::SuccessorGenerator(const TaskProxy &task_proxy)
     : use_naive(getenv("DOWNWARD_SG_NAIVE") != nullptr),
       use_watched_literals(getenv("DOWNWARD_SG_WATCHED_LITERALS") != nullptr),
       use_marking(getenv("DOWNWARD_SG_MARKING") != nullptr),
-      compare_with_match_tree(getenv("DOWNWARD_SG_COMPARE") != nullptr),
       log_applicable_ops(getenv("DOWNWARD_SG_LOG") != nullptr),
       log_method_name(generator_name_for_log(
           use_naive, use_watched_literals, use_marking)),
       root(create_root(
                task_proxy, use_naive, use_watched_literals, use_marking)),
       timer(false),
-      num_calls(0),
-      num_compared(0) {
-    if (compare_with_match_tree) {
-        reference = SuccessorGeneratorFactory(task_proxy).create();
-    }
+      num_calls(0) {
 }
 
 SuccessorGenerator::~SuccessorGenerator() = default;
@@ -72,50 +65,9 @@ void SuccessorGenerator::generate_applicable_ops(
     root->generate_applicable_ops(unpacked, applicable_ops);
     timer.stop();
     ++num_calls;
-    if (compare_with_match_tree) {
-        check_against_reference(unpacked, applicable_ops, size_before);
-    }
     if (log_applicable_ops) {
         log_call(unpacked, applicable_ops, size_before);
     }
-}
-
-void SuccessorGenerator::check_against_reference(
-    const vector<int> &state, const vector<OperatorID> &applicable_ops,
-    int size_before) const {
-    vector<OperatorID> from_root(
-        applicable_ops.begin() + size_before, applicable_ops.end());
-    vector<OperatorID> from_reference;
-    reference->generate_applicable_ops(state, from_reference);
-
-    sort(from_root.begin(), from_root.end());
-    sort(from_reference.begin(), from_reference.end());
-    ++num_compared;
-
-    if (from_root == from_reference) {
-        return;
-    }
-
-    utils::g_log << "Successor generator MISMATCH at comparison "
-                 << num_compared << endl;
-    utils::g_log << "State:";
-    for (int value : state) {
-        utils::g_log << " " << value;
-    }
-    utils::g_log << endl;
-    utils::g_log << "Tested generator returned " << from_root.size()
-                 << " operators:";
-    for (OperatorID op : from_root) {
-        utils::g_log << " " << op.get_index();
-    }
-    utils::g_log << endl;
-    utils::g_log << "Match tree returned " << from_reference.size()
-                 << " operators:";
-    for (OperatorID op : from_reference) {
-        utils::g_log << " " << op.get_index();
-    }
-    utils::g_log << endl;
-    ABORT("successor generator comparison failed");
 }
 
 void SuccessorGenerator::log_call(
@@ -152,10 +104,6 @@ void SuccessorGenerator::print_statistics() const {
     }
     utils::g_log << "Successor generator method: " << method << endl;
     utils::g_log << "Successor generator calls: " << num_calls << endl;
-    if (compare_with_match_tree) {
-        utils::g_log << "Successor generator comparisons against match tree: "
-                     << num_compared << " (all identical)" << endl;
-    }
     utils::g_log << "Time for successor generation: " << timer << endl;
 }
 
