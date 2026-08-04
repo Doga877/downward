@@ -12,19 +12,18 @@ namespace successor_generator {
 class GeneratorWatchedLiterals : public GeneratorBase {
     struct Entry {
         std::vector<FactPair> preconditions; // (var,  value) paar wie bei naive
-        OperatorID op;
-        mutable int watched_position;
+        int watched_position;
     };
 
-    std::vector<Entry> operators;
     std::vector<OperatorID> operators_without_preconditions; //  Diese Operatoren sind in jedem Zustand anwendbar und können nichts beobachten.
 
+    mutable std::vector<Entry> operators; // operators[op_id], wie bei marking
     mutable std::vector<std::vector<std::vector<int>>> watchlist; // watchlist[var][wert]
-    mutable std::vector<int> woken_entries;
+    mutable std::vector<int> woken_operators;
 
     int find_unsatisfied_precondition(const Entry &entry, const std::vector<int> &state) const;
 
-    void start_watching(int entry_id, int position) const;
+    void start_watching(int op_id, int position) const;
 
 public:
     explicit GeneratorWatchedLiterals(const TaskProxy &task_proxy);

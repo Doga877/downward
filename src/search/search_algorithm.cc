@@ -26,8 +26,8 @@ static successor_generator::SuccessorGenerator &get_successor_generator(
     int peak_memory_before = utils::get_peak_memory_in_kb();
     utils::Timer successor_generator_timer;
     successor_generator::SuccessorGenerator &successor_generator =
-        successor_generator::g_successor_generators[task_proxy];
-    successor_generator_timer.stop();
+        successor_generator::g_successor_generators[task_proxy]; // Konstruktor von SuccessorGenerator läuft
+    successor_generator_timer.stop(); //baut den Baum (create_root)
     log << "done!" << endl;
     int peak_memory_after = utils::get_peak_memory_in_kb();
     int memory_diff = peak_memory_after - peak_memory_before;
