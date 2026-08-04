@@ -1,4 +1,5 @@
 import contextlib
+import os
 import shutil
 import subprocess
 import sys
@@ -33,7 +34,14 @@ DIR = Path(__file__).resolve().parent
 SCRIPT = Path(sys.argv[0]).resolve()
 
 # Cover both the Basel and Linköping clusters for simplicity.
-REMOTE = BaselSlurmEnvironment.is_present() or TetralithEnvironment.is_present()
+# lab's is_present() only matches a fixed list of host names, so a login or
+# compute node with an unexpected name would silently run the experiment
+# locally. The extra check for /infai catches that case on the Basel grid.
+REMOTE = (
+    os.path.exists("/infai")
+    or BaselSlurmEnvironment.is_present()
+    or TetralithEnvironment.is_present()
+)
 
 
 def parse_args():
