@@ -16,7 +16,7 @@ import project
 
 REPO = project.get_repo_base()
 REVISION = "sg-marking"
-SCP_LOGIN = "oglakc0000@login.infai.org"
+SCP_LOGIN = "oglakc0000@login12.scicore.unibas.ch"
 REMOTE_REPOS_DIR = "/infai/oglakc0000"
 
 
