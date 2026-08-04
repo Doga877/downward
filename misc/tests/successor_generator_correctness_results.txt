@@ -1,3 +1,19 @@
-gripper/prob01.pddl: 713 Vergleiche, OK
+lokal: gripper/prob01.pddl: 713 Vergleiche, OK
+lokal: miconic/s1-0.pddl: 12 Vergleiche, OK
+lokal: miconic-simpleadl/s1-0.pddl: 12 Vergleiche, OK
+lokal: philosophers/p01-phil2.pddl: 346 Vergleiche, OK
+lokal: satellite/p25-HC-pfile5.pddl: 395 Vergleiche, OK
+suite: blocks/probBLOCKS-4-1.pddl: 168 Vergleiche, OK
+suite: depot/p01.pddl: 1195 Vergleiche, OK
+suite: driverlog/p01.pddl: 540 Vergleiche, OK
+suite: grid/prob01.pddl: 13543 Vergleiche, OK
+suite: rovers/p01.pddl: 3142 Vergleiche, OK
+suite: movie/prob01.pddl: 366 Vergleiche, OK
+suite: zenotravel/p03.pddl: 14405 Vergleiche, OK
+suite: tpp/p03.pddl: 351 Vergleiche, OK
+suite: visitall-opt11-strips/problem03-full.pddl: 1071 Vergleiche, OK
+suite: logistics98/prob01.pddl: 53 Vergleiche, OK
+suite: miconic-fulladl/f5-0.pddl: 2178 Vergleiche, OK
+suite: psr-middle/p01-s17-n2-l2-f30.pddl: 51 Vergleiche, OK
 
-GESAMT: 713 Vergleiche, 0 Abweichungen
+GESAMT: 38541 Vergleiche, 0 Abweichungen
