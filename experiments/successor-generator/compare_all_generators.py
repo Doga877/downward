@@ -289,6 +289,10 @@ def compute_derived_values(run):
     if num_queries is not None and expansions:
         run["queries_per_expansion"] = num_queries / expansions
 
+    # One per run, so summing counts tasks.
+    if expansions is not None:
+        run["common_tasks"] = 1
+
     return run
 
 
@@ -345,6 +349,11 @@ SHARE_ATTRIBUTES = [
 # equal by construction, and lower would be reported as better.
 COVERAGE_ATTRIBUTE = Attribute("solved", absolute=True, min_wins=False)
 
+# Number of tasks the times and state counts are aggregated over. Not
+# absolute, so it goes through the same commonly-solved filter as those
+# attributes and is the same in every column.
+COMMON_TASKS_ATTRIBUTE = Attribute("common_tasks", min_wins=False)
+
 # Counted over ALL tasks as well, otherwise a failure would be dropped from
 # the table precisely because it is a failure.
 ERROR_COUNT_ATTRIBUTES = [
@@ -354,6 +363,7 @@ ERROR_COUNT_ATTRIBUTES = [
 
 COUNT_ATTRIBUTES = [
     COVERAGE_ATTRIBUTE,
+    COMMON_TASKS_ATTRIBUTE,
     *ERROR_COUNT_ATTRIBUTES,
     "solution_cost",
     "expanded_states",
@@ -395,12 +405,14 @@ MAIN_ATTRIBUTES = [
     "error",
     *ERROR_COUNT_ATTRIBUTES,
     COVERAGE_ATTRIBUTE,
+    COMMON_TASKS_ATTRIBUTE,
     "evaluated_states",
     "expanded_states",
     "generated_states",
     "generator_number_of_queries",
     _time_attribute("generator_build_time_seconds"),
     _time_attribute("generator_query_time_seconds"),
+    _share_attribute("generator_share_of_search_time"),
     _time_attribute("search_time_seconds"),
     _time_attribute("total_time_seconds"),
 ]
