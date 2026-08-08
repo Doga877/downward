@@ -1,5 +1,22 @@
 #! /usr/bin/env python
 
+"""Zweites Experiment: satisficing-Aufgaben, eine Heuristik-Achse.
+
+Das erste Experiment (compare_all_generators.py) vergleicht astar(blind())
+gegen eager_greedy([ff()]). Dabei aendern sich Suchalgorithmus UND Heuristik
+gleichzeitig, der beobachtete Unterschied im Anteil der Nachfolgegenerierung
+ist also nicht eindeutig einer der beiden Groessen zuzuordnen.
+
+Hier bleibt der Suchalgorithmus fest (eager_greedy) und nur die Heuristik
+wechselt. Die drei Heuristiken sind nach ihren Kosten pro Zustand geordnet,
+sodass sich der Anteil der Nachfolgegenerierung als Kurve ueber diese Kosten
+lesen laesst.
+
+astar(blind()) laeuft hier NICHT mit: es loest auf satisficing-Aufgaben zu
+wenig, wuerde damit die gemeinsame Aufgabenmenge aller Spalten einbrechen
+lassen, und die obere Schranke ist aus dem ersten Experiment bereits bekannt.
+"""
+
 import itertools
 import os
 import shutil
@@ -8,6 +25,7 @@ import sys
 from collections import OrderedDict
 
 from downward.experiment import FastDownwardExperiment, FastDownwardRun
+from downward.reports.scatter import ScatterPlotReport
 from lab import tools
 from lab.parser import Parser
 from lab.reports import Attribute, arithmetic_mean
@@ -15,17 +33,15 @@ from lab.reports import Attribute, arithmetic_mean
 import project
 
 REPO = project.get_repo_base()
-REVISION = "sg-marking"
+REVISION = "successor_generators"
 SCP_LOGIN = "oglakc0000@login12.scicore.unibas.ch"
 REMOTE_REPOS_DIR = "/infai/oglakc0000"
 
 
-# lab builds the planner from this git revision, not from the working copy.
-# A name that only exists as "origin/<name>" does not resolve, so fail here
-# with a clear message instead of deep inside the build step.
 def check_revision_exists(repo, revision):
     result = subprocess.run(
-        ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet", f"{revision}^{{commit}}"],
+        ["git", "-C", str(repo), "rev-parse", "--verify", "--quiet",
+         f"{revision}^{{commit}}"],
         capture_output=True, text=True)
     if result.returncode != 0:
         sys.exit(
@@ -36,8 +52,6 @@ def check_revision_exists(repo, revision):
 
 check_revision_exists(REPO, REVISION)
 
-# Every environment variable that can switch the successor generator.
-# Listed here so we can delete ALL of them before setting the one we want.
 ALL_GENERATOR_ENV_VARS = [
     "DOWNWARD_SG_NAIVE",
     "DOWNWARD_SG_WATCHED_LITERALS",
@@ -45,12 +59,7 @@ ALL_GENERATOR_ENV_VARS = [
     "DOWNWARD_SG_TIMER",
 ]
 
-# One entry per generator we compare:
-# (short id used in file/algorithm names, env vars to set, name printed by the planner)
-# "naive" is listed first on purpose: scatter plots put the first algorithm of
-# a pair on the x-axis (bottom), and every scatter plot below compares the
-# other three generators against naive, so naive always ends up on the
-# x-axis (bottom) and the other generator on the y-axis.
+# naive first so it lands on the x-axis of every scatter plot.
 GENERATOR_METHODS = [
     ("naive", ["DOWNWARD_SG_NAIVE=1"], "naive"),
     ("match_tree", [], "match tree"),
@@ -58,36 +67,29 @@ GENERATOR_METHODS = [
     ("marking", ["DOWNWARD_SG_MARKING=1"], "marking"),
 ]
 
-# One entry per search setting we test every generator with.
+# The one axis this experiment varies, ordered by how much the heuristic costs
+# per state. Same search algorithm throughout, so a change in the successor
+# generator's share can only come from the heuristic.
+#
+#   goalcount  counts unsatisfied goals; a loop over the goal facts
+#   ff         builds a relaxed planning graph per state
+#   cea        context-enhanced additive, follows domain transition graphs
 SEARCH_CONFIGS = [
-    ("astar-blind", ["--search", "astar(blind())"]),
+    ("greedy-goalcount", ["--search", "eager_greedy([goalcount()])"]),
     ("greedy-ff", ["--search", "eager_greedy([ff()])"]),
+    ("greedy-cea", ["--search", "eager_greedy([cea()])"]),
 ]
 
-# How the time inside generate_applicable_ops is measured. This is a third
-# dimension next to generator and search config, so the cost of the
-# measurement itself becomes a measured number instead of an assumption.
-#   off        no measurement at all -> honest search and total time
-#   cpu        utils::Timer, i.e. clock_gettime(CLOCK_PROCESS_CPUTIME_ID),
-#              which is what the planner used so far
-#   monotonic  clock_gettime(CLOCK_MONOTONIC), about ten times cheaper and
-#              not degraded to millisecond granularity by RLIMIT_CPU
-# Trim this list to shrink the experiment; every entry multiplies the runs.
+# Only the cheap clock. The first experiment already measured what the
+# measurement costs: cpu adds up to 30% search time and overstates fast
+# generators more than slow ones, off does not measure the generator at all.
 TIMER_MODES = [
-    ("timer_off", "off"),
-    ("timer_cpu", "cpu"),
     ("timer_monotonic", "monotonic"),
 ]
 
 BUILD_OPTIONS = ["-j4"]
-
-# infai_2 nodes have 3872 MiB per core; stay below that so slurm does not
-# kill the job before the planner hits its own limit.
 MEMORY_LIMIT = "3584M"
 
-# Modules to load on the compute node. lab 8.10 ships an EMPTY default setup
-# for BaselSlurmEnvironment, so without this the node has no usable
-# GCC/Python/CMake and the runs fail.
 CLUSTER_SETUP = "\n".join([
     "module purge",
     "module -q load GCC/13.2.0",
@@ -99,7 +101,7 @@ if project.REMOTE:
     BENCHMARKS_DIR = os.environ.get("DOWNWARD_BENCHMARKS")
     if not BENCHMARKS_DIR:
         sys.exit("Set DOWNWARD_BENCHMARKS to the downward-benchmarks checkout.")
-    SUITE = project.SUITE_OPTIMAL_STRIPS
+    SUITE = project.SUITE_SATISFICING
     ENV = project.BaselSlurmEnvironment(
         partition="infai_2",
         qos="infai",
@@ -119,12 +121,6 @@ DRIVER_OPTIONS = [
     "--overall-memory-limit", MEMORY_LIMIT,
 ]
 
-
-# lab always passes --validate. Without VAL on the PATH the driver aborts with
-# "driver-input-error" AFTER the search, so every solved run is flagged as an
-# unexplained error and real errors drown in the noise. Correctness of the
-# generators is covered by misc/tests/check_successor_generator_correctness.py
-# and by the cost check below, so dropping validation is safe.
 VALIDATE_PLANS = shutil.which("validate") is not None
 if not VALIDATE_PLANS:
     print("VAL ('validate') not on PATH: running without plan validation.")
@@ -140,17 +136,12 @@ class GeneratorRun(FastDownwardRun):
         if not VALIDATE_PLANS:
             command = [part for part in command if part != "--validate"]
         self.commands["planner"] = (env_prefix + command, kwargs)
-        # What we asked for. Compared later against what the planner reports
-        # having used (see check_requested_setup_matches).
         self.set_property("requested_generator", requested_generator)
         self.set_property("requested_timer", requested_timer)
 
 
 class GeneratorExperiment(FastDownwardExperiment):
-    """A FastDownwardExperiment that can add several algorithms which only
-    differ by an environment variable (lab would normally reject this,
-    since it treats same revision + same driver + same search config as
-    "the same algorithm")."""
+    """Lets several algorithms differ only by an environment variable."""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -158,9 +149,6 @@ class GeneratorExperiment(FastDownwardExperiment):
 
     def add_generator_algorithm(self, name, requested_generator, requested_timer,
                                 env_assignments, **kwargs):
-        # Hide the already-added algorithms so lab's "is this a duplicate?"
-        # check has nothing to compare against, then restore them and do
-        # our own duplicate-name check by hand.
         already_added = self._algorithms
         self._algorithms = OrderedDict()
         super().add_algorithm(name, REPO, REVISION, **kwargs)
@@ -214,20 +202,27 @@ def get_parser():
         r"Successor generator timer: (.+)",
         type=str,
     )
-    # The memory the data structure itself costs. This is the price the match
-    # tree pays for being fast, so the comparison is incomplete without it.
     parser.add_pattern(
         "generator_peak_memory_kilobytes",
         r"peak memory difference for successor generator creation: (\d+) KB",
         type=int,
     )
+    # How big the grounded task is. Needed to group tasks by size and to plot
+    # generator time against the number of operators, which is the quantity
+    # the whole comparison is about.
+    parser.add_pattern("task_variables", r"Task variables: (\d+)", type=int)
+    parser.add_pattern("task_facts", r"Task facts: (\d+)", type=int)
+    parser.add_pattern("task_operators", r"Task operators: (\d+)", type=int)
+    parser.add_pattern("task_axioms", r"Task axioms: (\d+)", type=int)
+    parser.add_pattern("task_goals", r"Task goals: (\d+)", type=int)
+    parser.add_pattern(
+        "task_preconditions", r"Task preconditions: (\d+)", type=int)
+    parser.add_pattern(
+        "task_max_preconditions",
+        r"Task max preconditions per operator: (\d+)", type=int)
     return parser
 
 
-# Fast Downward's exit codes, as named by lab (downward/outcomes.py). Listed
-# explicitly instead of matching substrings: "search-out-of-memory-and-time"
-# does NOT contain "out-of-time", so a substring test would miss exactly the
-# case where both limits were hit.
 OUT_OF_TIME_ERRORS = [
     "search-out-of-time",
     "search-out-of-memory-and-time",
@@ -253,7 +248,6 @@ def compute_derived_values(run):
     run["translator_time_seconds"] = run.get("translator_time_done")
     run["search_time_seconds"] = run.get("search_time")
     run["total_time_seconds"] = run.get("total_time")
-    run["solved"] = run.get("coverage")
     run["expanded_states"] = run.get("expansions")
     run["evaluated_states"] = run.get("evaluations")
     run["generated_states"] = run.get("generated")
@@ -293,6 +287,22 @@ def compute_derived_values(run):
     if expansions is not None:
         run["common_tasks"] = 1
 
+    num_operators = run.get("task_operators")
+    num_preconditions = run.get("task_preconditions")
+    if num_operators:
+        run["preconditions_per_operator"] = num_preconditions / num_operators
+        # Bucket by order of magnitude, so tables can be split by task size
+        # without picking arbitrary cut-offs per domain.
+        for upper, name in [(100, "1 up to 100"),
+                            (1_000, "2 100 to 1k"),
+                            (10_000, "3 1k to 10k"),
+                            (100_000, "4 10k to 100k")]:
+            if num_operators < upper:
+                run["operator_count_class"] = name
+                break
+        else:
+            run["operator_count_class"] = "5 over 100k"
+
     return run
 
 
@@ -300,8 +310,7 @@ def check_requested_setup_matches(run):
     """Guard against a silently wrong run.
 
     If an env var does not arrive, the planner falls back to the match tree
-    and to the cpu timer without saying anything, and the whole comparison
-    would be worthless without it being visible anywhere.
+    and to the cpu timer without saying anything.
     """
     for what in ["generator", "timer"]:
         reported = run.get(f"reported_{what}")
@@ -344,18 +353,13 @@ SHARE_ATTRIBUTES = [
     _share_attribute("queries_per_expansion"),
 ]
 
-# Coverage must be summed over ALL tasks (absolute=True) and more is better.
-# Without this it is aggregated over commonly solved tasks only, where it is
-# equal by construction, and lower would be reported as better.
-COVERAGE_ATTRIBUTE = Attribute("solved", absolute=True, min_wins=False)
+COVERAGE_ATTRIBUTE = Attribute("coverage", absolute=True, min_wins=False)
 
 # Number of tasks the times and state counts are aggregated over. Not
 # absolute, so it goes through the same commonly-solved filter as those
 # attributes and is the same in every column.
 COMMON_TASKS_ATTRIBUTE = Attribute("common_tasks", min_wins=False)
 
-# Counted over ALL tasks as well, otherwise a failure would be dropped from
-# the table precisely because it is a failure.
 ERROR_COUNT_ATTRIBUTES = [
     Attribute("out_of_time", absolute=True, min_wins=True),
     Attribute("out_of_memory", absolute=True, min_wins=True),
@@ -366,17 +370,32 @@ COUNT_ATTRIBUTES = [
     COMMON_TASKS_ATTRIBUTE,
     *ERROR_COUNT_ATTRIBUTES,
     "solution_cost",
+    "plan_length",
     "expanded_states",
     "evaluated_states",
     "generated_states",
+    "dead_ends",
+    "reopened",
     "generator_number_of_queries",
     "generator_peak_memory_kilobytes",
     "memory_kilobytes",
 ]
 
-# lab's own scores, computed from the unrenamed attributes. They map a runtime
-# to [0, 1] on a log scale and, unlike a mean over commonly solved tasks, they
-# also account for the tasks a generator failed to solve.
+# Properties of the grounded task itself. Identical in every column for a
+# given task, so they never distinguish generators - they are there to group
+# tasks by size and to give the scatter plots an x-axis.
+TASK_SIZE_ATTRIBUTES = [
+    Attribute("task_variables", absolute=True, min_wins=None),
+    Attribute("task_facts", absolute=True, min_wins=None),
+    Attribute("task_operators", absolute=True, min_wins=None),
+    Attribute("task_axioms", absolute=True, min_wins=None),
+    Attribute("task_goals", absolute=True, min_wins=None),
+    Attribute("task_preconditions", absolute=True, min_wins=None),
+    Attribute("task_max_preconditions", absolute=True, min_wins=None),
+    Attribute("preconditions_per_operator", absolute=True, min_wins=None,
+              function=arithmetic_mean, digits=2),
+]
+
 SCORE_ATTRIBUTES = [
     Attribute("score_search_time", absolute=True, min_wins=False, digits=4),
     Attribute("score_total_time", absolute=True, min_wins=False, digits=4),
@@ -390,17 +409,14 @@ ATTRIBUTES = [
     "reported_generator",
     "requested_timer",
     "reported_timer",
+    "operator_count_class",
     *COUNT_ATTRIBUTES,
+    *TASK_SIZE_ATTRIBUTES,
     *TIME_ATTRIBUTES,
     *SHARE_ATTRIBUTES,
     *SCORE_ATTRIBUTES,
 ]
 
-# The metrics the thesis actually compares, in reading order. The report built
-# from these is the one that goes into the evaluation chapter; the full report
-# above keeps everything else for digging into single results.
-# All four time attributes are aggregated with the arithmetic mean, because
-# they are additive: generator build + generator generation + rest = search.
 MAIN_ATTRIBUTES = [
     "error",
     *ERROR_COUNT_ATTRIBUTES,
@@ -462,15 +478,10 @@ project.add_absolute_report(
 project.add_absolute_report(
     exp, name=f"{exp.name}-all", attributes=ATTRIBUTES, filter=FILTERS)
 
-# The generator comparison: four generators side by side, same timer mode, and
-# ONE search config per table.
-#
-# The search config must not be mixed into one table. For every attribute with
-# absolute=False (times, expansions, evaluations) lab aggregates over the tasks
-# that ALL columns of that table solved. With both configs in one table, a task
-# that astar-blind cannot solve would also be dropped from the greedy-ff
-# comparison, and the other way round. One config per table means "solved by
-# all four generators" really is the set being compared.
+# The generator comparison: four generators side by side, ONE heuristic per
+# table. Mixing heuristics into one table would aggregate every attribute with
+# absolute=False over the tasks all twelve columns solved, so a task that
+# goalcount cannot solve would also drop out of the cea comparison.
 for timer_id in TIMER_IDS:
     for config_id in CONFIG_IDS:
         project.add_absolute_report(
@@ -484,75 +495,107 @@ for timer_id in TIMER_IDS:
             ],
         )
 
-# The timer comparison: the same generator measured three ways, again one
-# search config per table. The difference between the columns is what the
-# measurement itself costs.
+# The heuristic comparison, and the point of this experiment: one generator,
+# the three heuristics side by side. The successor generator does the same
+# work in all three columns, so the change in its share is the effect of the
+# heuristic alone.
 for method_id in METHOD_IDS:
-    for config_id in CONFIG_IDS:
+    for timer_id in TIMER_IDS:
         project.add_absolute_report(
             exp,
-            name=f"{exp.name}-timers-{config_id}-{method_id}",
+            name=f"{exp.name}-heuristics-{method_id}-{timer_id}",
             attributes=MAIN_ATTRIBUTES,
             filter=FILTERS,
             filter_algorithm=[
                 algorithm_name(config_id, method_id, timer_id)
-                for timer_id in TIMER_IDS
+                for config_id in CONFIG_IDS
             ],
         )
 
-# All four generators return the same set of applicable operators, so under
-# astar(blind()) they must all find plans of the same cost. Different orderings
-# may change expansions and which optimal plan is found, but never the cost.
-# A differing cost here means a generator drops or invents operators.
-project.add_absolute_report(
-    exp,
-    name=f"{exp.name}-cost-check-astar-blind",
-    attributes=[COVERAGE_ATTRIBUTE, "solution_cost", "expanded_states", "generated_states"],
-    filter=[compute_derived_values, project.OptimalityCheckFilter().check_costs],
-    filter_algorithm=[
-        algorithm_name("astar-blind", method_id, timer_id)
-        for method_id in METHOD_IDS
-        for timer_id in TIMER_IDS
-    ],
-)
+# The four generators split by task size. Naive is expected to fall behind as
+# the operator count grows, since its cost is linear in it while the others
+# are not; one table per size class is what makes that visible.
+OPERATOR_COUNT_CLASSES = [
+    "1 up to 100", "2 100 to 1k", "3 1k to 10k", "4 10k to 100k",
+    "5 over 100k",
+]
 
-# Scatter plots only for astar-blind: with three timer modes the full cross
-# product would be several hundred plots, and blind search is the setting where
-# successor generation carries the most weight.
-SCATTER_CONFIG = "astar-blind"
+# ff is the heuristic shared with the first experiment, so the size tables
+# stay comparable to it.
+SIZE_REPORT_CONFIG = "greedy-ff"
 
-# Generator against generator, all measured without a timer: the honest runtime
-# comparison of the four methods.
+
+def keep_operator_count_class(wanted):
+    def keep(run):
+        return run.get("operator_count_class") == wanted
+    return keep
+
+
+for size_class in OPERATOR_COUNT_CLASSES:
+    slug = size_class.split(" ", 1)[0]
+    project.add_absolute_report(
+        exp,
+        name=f"{exp.name}-size{slug}-{SIZE_REPORT_CONFIG}",
+        attributes=MAIN_ATTRIBUTES,
+        filter=FILTERS + [keep_operator_count_class(size_class)],
+        filter_algorithm=[
+            algorithm_name(SIZE_REPORT_CONFIG, method_id, TIMER_IDS[0])
+            for method_id in METHOD_IDS
+        ],
+    )
+
+# Scatter plots. One point per task, so only tasks both algorithms solved
+# appear - the per-task counterpart to the aggregated tables above.
+SCATTER_CONFIG = "greedy-ff"
+SCATTER_TIMER = TIMER_IDS[0]
+
 generator_pairs = [
-    (algorithm_name(SCATTER_CONFIG, first, "timer_off"),
-     algorithm_name(SCATTER_CONFIG, second, "timer_off"))
+    (algorithm_name(SCATTER_CONFIG, first, SCATTER_TIMER),
+     algorithm_name(SCATTER_CONFIG, second, SCATTER_TIMER))
     for first, second in itertools.combinations(METHOD_IDS, 2)
 ]
 project.add_scatter_plot_reports(
-    exp, generator_pairs, ["total_time_seconds", "search_time_seconds"],
+    exp, generator_pairs,
+    ["total_time_seconds", "search_time_seconds",
+     "generator_query_time_seconds", "time_per_query_microseconds",
+     "expanded_states"],
     filter=[compute_derived_values])
 
-# Generator against generator on the measured generator time itself, using the
-# cheap clock.
-generator_pairs_monotonic = [
-    (algorithm_name(SCATTER_CONFIG, first, "timer_monotonic"),
-     algorithm_name(SCATTER_CONFIG, second, "timer_monotonic"))
-    for first, second in itertools.combinations(METHOD_IDS, 2)
-]
-project.add_scatter_plot_reports(
-    exp, generator_pairs_monotonic, ["generator_query_time_seconds"],
-    filter=[compute_derived_values])
+# The same plots again, but coloured by how many operators the task has
+# instead of by domain. This is what shows whether the generators separate
+# with task size, which is the claim the whole thesis rests on.
+def colour_by_operator_count(run1, run2):
+    return run1.get("operator_count_class", "unknown")
 
-# The same generator against itself under two timer modes. Every point off the
-# diagonal is what the measurement itself costs.
-timer_pairs = [
-    (algorithm_name(SCATTER_CONFIG, method_id, first),
-     algorithm_name(SCATTER_CONFIG, method_id, second))
+
+for first, second in itertools.combinations(METHOD_IDS, 2):
+    algo1 = algorithm_name(SCATTER_CONFIG, first, SCATTER_TIMER)
+    algo2 = algorithm_name(SCATTER_CONFIG, second, SCATTER_TIMER)
+    for attribute in ["generator_query_time_seconds",
+                      "time_per_query_microseconds"]:
+        exp.add_report(
+            ScatterPlotReport(
+                relative=False,
+                get_category=colour_by_operator_count,
+                attributes=[attribute],
+                filter_algorithm=[algo1, algo2],
+                filter=[compute_derived_values],
+                format="png",
+            ),
+            name=f"{exp.name}-bysize-{first}-{second}-{attribute}",
+        )
+
+# The same generator under two heuristics: every point off the diagonal is
+# what the heuristic costs, measured against a fixed successor generator.
+heuristic_pairs = [
+    (algorithm_name(first, method_id, SCATTER_TIMER),
+     algorithm_name(second, method_id, SCATTER_TIMER))
     for method_id in METHOD_IDS
-    for first, second in itertools.combinations(TIMER_IDS, 2)
+    for first, second in itertools.combinations(CONFIG_IDS, 2)
 ]
 project.add_scatter_plot_reports(
-    exp, timer_pairs, ["total_time_seconds", "search_time_seconds"],
+    exp, heuristic_pairs,
+    ["generator_share_of_search_time", "search_time_seconds"],
     filter=[compute_derived_values])
 
 if not project.REMOTE:

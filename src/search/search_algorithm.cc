@@ -20,8 +20,37 @@
 using namespace std;
 using utils::ExitCode;
 
+static void log_task_size(const TaskProxy &task_proxy, utils::LogProxy &log) {
+    VariablesProxy variables = task_proxy.get_variables();
+    OperatorsProxy operators = task_proxy.get_operators();
+
+    int num_facts = 0;
+    for (VariableProxy variable : variables) {
+        num_facts += variable.get_domain_size();
+    }
+
+    int num_preconditions = 0;
+    int max_preconditions = 0;
+    for (OperatorProxy op : operators) {
+        int size = op.get_preconditions().size();
+        num_preconditions += size;
+        if (size > max_preconditions) {
+            max_preconditions = size;
+        }
+    }
+
+    log << "Task variables: " << variables.size() << endl
+        << "Task facts: " << num_facts << endl
+        << "Task operators: " << operators.size() << endl
+        << "Task axioms: " << task_proxy.get_axioms().size() << endl
+        << "Task goals: " << task_proxy.get_goals().size() << endl
+        << "Task preconditions: " << num_preconditions << endl
+        << "Task max preconditions per operator: " << max_preconditions << endl;
+}
+
 static successor_generator::SuccessorGenerator &get_successor_generator(
     const TaskProxy &task_proxy, utils::LogProxy &log) {
+    log_task_size(task_proxy, log);
     log << "Building successor generator... " << flush;
     int peak_memory_before = utils::get_peak_memory_in_kb();
     utils::Timer successor_generator_timer;
