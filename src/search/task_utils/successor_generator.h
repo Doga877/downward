@@ -26,6 +26,7 @@ class SuccessorGenerator {
     bool use_watched_literals;
     bool use_marking;
     TimerMode timer_mode;
+    bool sort_applicable_ops;
     bool log_applicable_ops;
     std::string log_method_name;
     std::unique_ptr<GeneratorBase> root;

@@ -10,6 +10,7 @@
 #include "../utils/logging.h"
 #include "../utils/system.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <ctime>
 #include <iomanip>
@@ -79,6 +80,7 @@ SuccessorGenerator::SuccessorGenerator(const TaskProxy &task_proxy)
       use_watched_literals(getenv("DOWNWARD_SG_WATCHED_LITERALS") != nullptr),
       use_marking(getenv("DOWNWARD_SG_MARKING") != nullptr),
       timer_mode(read_timer_mode()),
+      sort_applicable_ops(getenv("DOWNWARD_SG_SORT") != nullptr),
       log_applicable_ops(getenv("DOWNWARD_SG_LOG") != nullptr),
       log_method_name(generator_name_for_log(
           use_naive, use_watched_literals, use_marking)),
@@ -106,6 +108,9 @@ void SuccessorGenerator::generate_applicable_ops(
         monotonic_nanoseconds += current_monotonic_nanoseconds() - start;
     } else {
         root->generate_applicable_ops(unpacked, applicable_ops);
+    }
+    if (sort_applicable_ops) {
+        sort(applicable_ops.begin() + size_before, applicable_ops.end());
     }
     ++num_calls;
     if (log_applicable_ops) {
@@ -146,6 +151,8 @@ void SuccessorGenerator::print_statistics() const {
         method = "match tree";
     }
     utils::g_log << "Successor generator method: " << method << endl;
+    utils::g_log << "Successor generator sorting: "
+                 << (sort_applicable_ops ? "on" : "off") << endl;
     utils::g_log << "Successor generator calls: " << num_calls << endl;
 
     if (timer_mode == TimerMode::CPU) {
